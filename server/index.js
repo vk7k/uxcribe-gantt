@@ -38,7 +38,24 @@ app.get("*", (req, res) => {
 });
 
 // Start server
-server.listen(config.port, () => {
+
+// Auto seed if empty
+async function checkAndSeed() {
+  try {
+    const prisma = require("./db");
+    const count = await prisma.project.count();
+    if (count === 0) {
+      console.log("No projects found in DB. Auto-seeding sample projects...");
+      const seed = require("../prisma/seed");
+      await seed();
+    }
+  } catch (err) {
+    console.warn("Auto-seed check:", err.message);
+  }
+}
+
+server.listen(config.port, async () => {
+  await checkAndSeed();
   console.log(`======================================================`);
   console.log(`🚀 uxcribe-gantt server running on http://localhost:${config.port}`);
   console.log(`📊 Database URL: ${config.databaseUrl.replace(/:[^:@]*@/, ":****@")}`);
