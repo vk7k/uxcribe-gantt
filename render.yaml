@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: uxcribe-gantt
+    runtime: node
+    plan: free
+    buildCommand: npm install && npx prisma generate && npx prisma db push
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false

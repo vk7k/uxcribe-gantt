@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>uxcribe-gantt | Carta Gantt Colaborativa</title>
+  <meta name="description" content="Aplicación colaborativa de Carta Gantt con tarjetas de tareas estilo Trello, editor de texto enriquecido, feed de comentarios en tiempo real y sincronización multiusuario.">
+  
+  <!-- Google Fonts: Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  
+  <!-- App Stylesheets -->
+  <link rel="stylesheet" href="/css/variables.css">
+  <link rel="stylesheet" href="/css/layout.css">
+  <link rel="stylesheet" href="/css/gantt.css">
+  <link rel="stylesheet" href="/css/modal-card.css">
+  <link rel="stylesheet" href="/css/rich-editor.css">
+  <link rel="stylesheet" href="/css/components.css">
+  
+  <!-- Socket.IO Client -->
+  <script src="/socket.io/socket.io.js"></script>
+</head>
+<body>
+
+  <div class="app-container">
+    <!-- 1. Top Navbar -->
+    <header class="top-navbar">
+      <div class="brand-section">
+        <button class="menu-toggle-btn" title="Menu" id="btn-sidebar-toggle">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+        </button>
+        <div class="brand-title">
+          uxcribe<span class="accent">-gantt</span>
+        </div>
+      </div>
+
+      <!-- Project Tabs -->
+      <div class="project-tabs-container" id="project-tabs-list">
+        <!-- Injected dynamically: e.g. Sample Project, Forester Construction -->
+      </div>
+      <button class="btn-new-project-tab" id="btn-open-new-project-modal" title="Crear Nuevo Proyecto">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+        Nuevo
+      </button>
+
+      <!-- Right actions in topbar -->
+      <div class="top-navbar-actions">
+        <div class="live-badge" title="Sincronización colaborativa en vivo">
+          <span class="pulse-dot"></span>
+          <span id="live-users-count">1 en línea</span>
+        </div>
+        <button class="top-btn" id="btn-open-projects-manager" title="Abrir y Administrar Proyectos">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+          Proyectos
+        </button>
+        <button class="top-btn" id="btn-import-project" title="Importar paquete de proyecto (.uxgantt o .json)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+          Importar
+        </button>
+        <button class="top-btn" id="btn-export-project" title="Exportar paquete de proyecto completo (.uxgantt con archivos)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+          Exportar
+        </button>
+        <input type="file" id="input-import-json-file" accept=".uxgantt,.json,application/json,application/zip" style="display:none;" />
+      </div>
+    </header>
+
+    <!-- 2. Sub Navigation: Views Switcher -->
+    <nav class="sub-navbar">
+      <div class="views-nav-list">
+        <div class="view-nav-item active" data-view="gantt" id="nav-view-gantt">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="8" y1="9" x2="16" y2="9"></line><line x1="10" y1="14" x2="18" y2="14"></line></svg>
+          <span>Gantt</span>
+        </div>
+        <div class="view-nav-item" data-view="dashboard" id="nav-view-dashboard">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"></path><path d="M18 17V9"></path><path d="M13 17V5"></path><path d="M8 17v-3"></path></svg>
+          <span>Dashboard</span>
+        </div>
+        <div class="view-nav-item" data-view="calendar" id="nav-view-calendar">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+          <span>Calendario</span>
+        </div>
+        <div class="view-nav-item" data-view="files" id="nav-view-files">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"></path><polyline points="13 2 13 9 20 9"></polyline></svg>
+          <span>Archivos</span>
+        </div>
+        <div class="view-nav-item" data-view="discuss" id="nav-view-discuss">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+          <span>Comentarios</span>
+        </div>
+      </div>
+
+      <div class="sub-nav-right">
+        <div class="project-title-indicator" id="current-project-indicator">
+          <span class="project-color-badge" id="current-project-color"></span>
+          <span id="current-project-name">Cargando...</span>
+        </div>
+      </div>
+    </nav>
+
+    <!-- 3. Toolbar for Gantt View -->
+    <div class="gantt-toolbar" id="gantt-view-toolbar">
+      <div class="toolbar-group">
+        <button class="tb-btn tb-btn-primary" id="btn-add-task-quick" title="Añadir Tarea">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+          <span>Añadir Tarea</span>
+        </button>
+        <button class="tb-btn" id="btn-add-phase-quick" title="Añadir Fase / Proceso">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"></rect><line x1="8" y1="12" x2="16" y2="12"></line></svg>
+          <span>Nueva Fase</span>
+        </button>
+        <button class="tb-btn" id="btn-add-milestone-quick" title="Añadir Hito">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L2 12l10 10 10-10L12 2z"></path></svg>
+          <span>Hito</span>
+        </button>
+        <div class="tb-divider"></div>
+        <button class="tb-btn" id="btn-move-task-up" title="Mover Fila Arriba (↑)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="19" x2="12" y2="5"></line><polyline points="5 12 12 5 19 12"></polyline></svg>
+        </button>
+        <button class="tb-btn" id="btn-move-task-down" title="Mover Fila Abajo (↓)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><polyline points="19 12 12 19 5 12"></polyline></svg>
+        </button>
+        <button class="tb-btn" id="btn-indent-task" title="Hacer Subtarea (Indentar)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="13 17 18 12 13 7"></polyline><polyline points="6 17 11 12 6 7"></polyline></svg>
+        </button>
+        <button class="tb-btn" id="btn-outdent-task" title="Desvincular / Des-indentar">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="11 17 6 12 11 7"></polyline><polyline points="18 17 13 12 18 7"></polyline></svg>
+        </button>
+        <button class="tb-btn" id="btn-delete-selected" title="Eliminar seleccionado">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+        </button>
+      </div>
+
+      <div class="toolbar-group">
+        <div class="zoom-selector">
+          <button class="zoom-btn active" data-zoom="days">Días</button>
+          <button class="zoom-btn" data-zoom="weeks">Semanas</button>
+          <button class="zoom-btn" data-zoom="months">Meses</button>
+        </div>
+
+        <div class="search-box">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+          <input type="text" id="task-filter-input" placeholder="Buscar tarea..." />
+        </div>
+      </div>
+    </div>
+
+    <!-- 4. Main Views Container -->
+    <main class="main-view-wrapper">
+      
+      <!-- GANTT VIEW -->
+      <section class="view-pane active" id="pane-gantt">
+        <div class="gantt-container" id="gantt-split-container">
+          
+          <!-- Left Table Pane -->
+          <div class="gantt-grid-pane" id="gantt-grid-pane">
+            <div class="grid-header">
+              <div class="grid-col col-num">#</div>
+              <div class="grid-col col-status">✓</div>
+              <div class="grid-col col-name">Nombre de Tarea</div>
+              <div class="grid-col col-start">Inicio</div>
+              <div class="grid-col col-end">Fin</div>
+              <div class="grid-col col-assigned">Asignado</div>
+              <div class="grid-col col-progress">%</div>
+            </div>
+            <div class="grid-body" id="gantt-grid-rows-container">
+              <!-- Rendered dynamically -->
+            </div>
+            <!-- Column Resizer Handle -->
+            <div class="gantt-resizer" id="gantt-pane-resizer"></div>
+          </div>
+
+          <!-- Right Timeline Pane -->
+          <div class="gantt-timeline-pane" id="gantt-timeline-pane">
+            <div class="timeline-header-wrapper" id="timeline-header-wrapper">
+              <div class="timeline-header-scroll" id="timeline-header-scroll">
+                <div class="timeline-header-row-primary" id="timeline-header-primary"></div>
+                <div class="timeline-header-row-secondary" id="timeline-header-secondary"></div>
+              </div>
+            </div>
+            
+            <div class="timeline-body" id="timeline-body">
+              <div class="timeline-canvas-container" id="timeline-canvas">
+                <!-- 1. Column grid background -->
+                <div class="timeline-grid-lines" id="timeline-grid-columns"></div>
+                <!-- 2. Row lines background -->
+                <div class="timeline-grid-rows" id="timeline-grid-rows"></div>
+                <!-- 3. Today vertical indicator -->
+                <div class="timeline-today-line" id="timeline-today-indicator">
+                  <div class="timeline-today-badge">HOY</div>
+                </div>
+                <!-- 4. SVG Dependencies -->
+                <svg class="timeline-svg-dependencies" id="timeline-svg-layer">
+                  <defs>
+                    <marker id="dep-arrow" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                      <path d="M 0 1 L 8 5 L 0 9 z" fill="#64748b" />
+                    </marker>
+                    <marker id="dep-arrow-active" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                      <path d="M 0 1 L 8 5 L 0 9 z" fill="#0284c7" />
+                    </marker>
+                  </defs>
+                </svg>
+                <!-- 5. Gantt Task Bars -->
+                <div class="timeline-bars-layer" id="timeline-bars-container"></div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- DASHBOARD VIEW -->
+      <section class="view-pane" id="pane-dashboard" style="background:#f8fafc; overflow-y:auto; padding:24px;">
+        <div id="dashboard-content" style="max-width: 1200px; margin: 0 auto; width:100%;">
+          <!-- Injected by dashboard.js -->
+        </div>
+      </section>
+
+      <!-- CALENDAR VIEW -->
+      <section class="view-pane" id="pane-calendar" style="background:#f8fafc; overflow-y:auto; padding:24px;">
+        <div id="calendar-content" style="max-width: 1200px; margin: 0 auto; width:100%;">
+          <!-- Monthly view rendered by dashboard.js / calendar -->
+        </div>
+      </section>
+
+      <!-- FILES VIEW -->
+      <section class="view-pane" id="pane-files" style="background:#f8fafc; overflow-y:auto; padding:24px;">
+        <div id="files-repository-content" style="max-width: 1100px; margin: 0 auto; width:100%;">
+          <!-- Project-wide attachments list -->
+        </div>
+      </section>
+
+      <!-- DISCUSS VIEW -->
+      <section class="view-pane" id="pane-discuss" style="background:#f8fafc; overflow-y:auto; padding:24px;">
+        <div id="discuss-content" style="max-width: 850px; margin: 0 auto; width:100%;">
+          <!-- Project-wide comments feed -->
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- ======================================================== -->
+  <!-- MODAL: TRELLO-STYLE TASK CARD WITH RICH TEXT & COMMENTS -->
+  <!-- ======================================================== -->
+  <div class="task-card-modal-overlay" id="task-card-modal-overlay">
+    <div class="task-card-modal" id="task-card-modal">
+      <!-- Accent Top Color Line -->
+      <div class="task-card-accent-bar" id="tc-accent-bar"></div>
+
+      <!-- Header: Title & Phase -->
+      <div class="task-card-header">
+        <div class="task-card-title-group">
+          <div class="task-card-phase-badge" id="tc-phase-badge">
+            <span id="tc-phase-name">Fase de Análisis</span>
+          </div>
+          <input type="text" class="task-card-title-input" id="tc-title-input" value="Nombre de la Tarea" placeholder="Nombre de la tarea" />
+        </div>
+        <button class="task-card-close-btn" id="btn-close-task-modal" title="Cerrar (Esc)">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+      </div>
+
+      <!-- Quick Metadata Grid -->
+      <div class="task-card-meta-bar">
+        <!-- Date Start -->
+        <div class="meta-field">
+          <label class="meta-field-label">Inicio</label>
+          <input type="date" class="meta-date-input" id="tc-start-date" />
+        </div>
+
+        <!-- Date End -->
+        <div class="meta-field">
+          <label class="meta-field-label">Fin</label>
+          <input type="date" class="meta-date-input" id="tc-end-date" />
+        </div>
+
+        <!-- Progress Slider -->
+        <div class="meta-field">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <label class="meta-field-label">Progreso</label>
+            <span class="progress-val-text" id="tc-progress-val">50%</span>
+          </div>
+          <div class="meta-progress-wrapper" style="margin-top: 4px;">
+            <input type="range" min="0" max="100" class="progress-slider" id="tc-progress-slider" value="50" />
+          </div>
+        </div>
+
+        <!-- Assignee -->
+        <div class="meta-field" id="tc-parent-phase-container">
+          <label class="meta-field-label">Fase Perteneciente</label>
+          <select class="meta-date-input" id="tc-parent-phase-select">
+            <option value="">(Sin fase / Independiente)</option>
+          </select>
+        </div>
+
+        <div class="meta-field">
+          <label class="meta-field-label">Asignado a</label>
+          <input type="text" class="meta-date-input" id="tc-assignee-input" placeholder="Ej: Mike Smith..." />
+        </div>
+
+        <!-- Color Swatches -->
+        <div class="meta-field">
+          <label class="meta-field-label">Color</label>
+          <div class="color-picker-row" id="tc-color-picker" style="margin-top: 4px;">
+            <div class="color-swatch-dot active" data-color="#0284c7" style="background:#0284c7;"></div>
+            <div class="color-swatch-dot" data-color="#22c55e" style="background:#22c55e;"></div>
+            <div class="color-swatch-dot" data-color="#f59e0b" style="background:#f59e0b;"></div>
+            <div class="color-swatch-dot" data-color="#ef4444" style="background:#ef4444;"></div>
+            <div class="color-swatch-dot" data-color="#8b5cf6" style="background:#8b5cf6;"></div>
+            <div class="color-swatch-dot" data-color="#06b6d4" style="background:#06b6d4;"></div>
+            <div class="color-swatch-dot" data-color="#64748b" style="background:#64748b;"></div>
+          </div>
+        </div>
+
+        <!-- Tags -->
+        <div class="meta-field meta-field-full">
+          <label class="meta-field-label">Etiquetas</label>
+          <div class="tags-input-container" id="tc-tags-container">
+            <input type="text" class="tag-text-input" id="tc-tag-input" placeholder="Escribe una etiqueta y presiona Enter..." />
+          </div>
+        </div>
+      </div>
+
+      <!-- Navigation Tabs inside Card -->
+      <div class="task-card-nav-tabs">
+        <button class="card-nav-tab active" data-tab="desc" id="tc-tab-desc">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="17" y1="10" x2="3" y2="10"></line><line x1="21" y1="6" x2="3" y2="6"></line><line x1="21" y1="14" x2="3" y2="14"></line><line x1="17" y1="18" x2="3" y2="18"></line></svg>
+          <span>Descripción</span>
+        </button>
+        <button class="card-nav-tab" data-tab="comments" id="tc-tab-comments">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+          <span>Comentarios</span>
+          <span class="card-tab-badge" id="tc-badge-comments-count">0</span>
+        </button>
+        <button class="card-nav-tab" data-tab="attachments" id="tc-tab-attachments">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg>
+          <span>Archivos Adjuntos</span>
+          <span class="card-tab-badge" id="tc-badge-attachments-count">0</span>
+        </button>
+        <button class="card-nav-tab" data-tab="checklist" id="tc-tab-checklist">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"></polyline><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path></svg>
+          <span>Checklist</span>
+          <span class="card-tab-badge" id="tc-badge-checklist-count">0/0</span>
+        </button>
+        <button class="card-nav-tab" data-tab="dependencies" id="tc-tab-dependencies">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>
+          <span>Dependencias</span>
+        </button>
+      </div>
+
+      <!-- Tab Content Body -->
+      <div class="task-card-content-body">
+        
+        <!-- 1. Description Tab: WYSIWYG Editor with Inline Images -->
+        <div class="card-tab-pane active" id="tc-pane-desc">
+          <div class="rich-editor-container">
+            <div class="rich-editor-toolbar">
+              <button type="button" class="re-btn" data-cmd="bold" title="Negrita (Ctrl+B)"><strong>B</strong></button>
+              <button type="button" class="re-btn" data-cmd="italic" title="Cursiva (Ctrl+I)"><em>I</em></button>
+              <button type="button" class="re-btn" data-cmd="underline" title="Subrayado (Ctrl+U)"><u>U</u></button>
+              <button type="button" class="re-btn" data-cmd="strikeThrough" title="Tachado"><s>S</s></button>
+              <div class="re-separator"></div>
+              <button type="button" class="re-btn" data-cmd="formatBlock" data-val="h2" title="Encabezado 2">H2</button>
+              <button type="button" class="re-btn" data-cmd="formatBlock" data-val="h3" title="Encabezado 3">H3</button>
+              <button type="button" class="re-btn" data-cmd="formatBlock" data-val="p" title="Párrafo">P</button>
+              <div class="re-separator"></div>
+              <button type="button" class="re-btn" data-cmd="insertUnorderedList" title="Lista con viñetas">• Lista</button>
+              <button type="button" class="re-btn" data-cmd="insertOrderedList" title="Lista numerada">1. Lista</button>
+              <button type="button" class="re-btn" data-cmd="formatBlock" data-val="blockquote" title="Cita">“ Cita</button>
+              <div class="re-separator"></div>
+              <button type="button" class="re-btn" id="btn-re-insert-image" title="Insertar Imagen en el texto">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+                Imagen
+              </button>
+              <input type="file" id="re-inline-image-input" accept="image/*" style="display:none;" />
+              <button type="button" class="re-btn" id="btn-re-insert-link" title="Insertar Enlace">🔗 Link</button>
+              <button type="button" class="re-btn" data-cmd="removeFormat" title="Limpiar formato">✕ Limpiar</button>
+            </div>
+            <div class="rich-editor-content" id="tc-rich-editor" contenteditable="true" data-placeholder="Añade una descripción detallada para esta tarea... Puedes dar formato e insertar imágenes o enlaces directamente."></div>
+          </div>
+        </div>
+
+        <!-- 2. Comments Feed Tab -->
+        <div class="card-tab-pane" id="tc-pane-comments">
+          <div class="comments-feed-container">
+            <div class="new-comment-box">
+              <div class="user-avatar-large" id="current-user-avatar">US</div>
+              <div class="comment-input-wrapper">
+                <textarea class="comment-textarea" id="tc-new-comment-text" placeholder="Escribe un comentario o actualización de estado para el equipo..."></textarea>
+                <div style="display:flex; justify-content:flex-end;">
+                  <button class="btn btn-primary btn-sm" id="btn-post-comment">Publicar Comentario</button>
+                </div>
+              </div>
+            </div>
+            <div class="comments-stream" id="tc-comments-stream">
+              <!-- Comments rendered dynamically -->
+            </div>
+          </div>
+        </div>
+
+        <!-- 3. Attachments Tab -->
+        <div class="card-tab-pane" id="tc-pane-attachments">
+          <div class="attachments-dropzone" id="tc-attachments-dropzone">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#0284c7" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+            <div><strong>Haz clic o arrastra archivos aquí</strong> para adjuntarlos a esta tarea</div>
+            <div style="font-size:11px; color:#94a3b8;">Soporta imágenes, PDFs, documentos Word/Excel, ZIPs (hasta 25MB)</div>
+            <input type="file" id="tc-attachment-file-input" style="display:none;" multiple />
+          </div>
+          <div class="attachments-grid" id="tc-attachments-grid">
+            <!-- Attachment cards rendered dynamically -->
+          </div>
+        </div>
+
+        <!-- 4. Checklist Tab -->
+        <div class="card-tab-pane" id="tc-pane-checklist">
+          <div style="display:flex; flex-direction:column; gap:12px;">
+            <div class="checklist-progress-bar-container">
+              <span style="font-size:12px; font-weight:600; color:var(--text-muted);" id="tc-checklist-pct">0%</span>
+              <div class="checklist-progress-track">
+                <div class="checklist-progress-fill" id="tc-checklist-progress-fill" style="width:0%;"></div>
+              </div>
+            </div>
+            <div class="checklist-items-list" id="tc-checklist-items">
+              <!-- Checklist item rows -->
+            </div>
+            <div class="add-checklist-item-row">
+              <input type="text" class="checklist-input" id="tc-new-checklist-text" placeholder="Añadir un elemento al checklist..." />
+              <button class="btn btn-secondary btn-sm" id="btn-add-checklist-item">Añadir</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 5. Dependencies Tab -->
+        <div class="card-tab-pane" id="tc-pane-dependencies">
+          <div class="dependencies-tab-content">
+            <div class="dep-section-title">Tareas Predecesoras (Deben completarse antes)</div>
+            <div class="dep-items-list" id="tc-predecessors-list">
+              <!-- Predecessors chips -->
+            </div>
+
+            <div class="dep-section-title" style="margin-top:10px;">Tareas Sucesoras (Comienzan después de esta)</div>
+            <div class="dep-items-list" id="tc-successors-list">
+              <!-- Successors chips -->
+            </div>
+
+            <div style="background:#f8fafc; padding:14px; border-radius:var(--radius-sm); border:1px solid var(--border-light); margin-top:10px;">
+              <div style="font-size:12px; font-weight:600; margin-bottom:8px;">Vincular con otra tarea:</div>
+              <div style="display:flex; gap:8px;">
+                <select class="form-control" style="flex:1;" id="tc-dep-target-task-select"></select>
+                <select class="form-control" style="width:130px;" id="tc-dep-type-select">
+                  <option value="FS">Fin a Inicio (FS)</option>
+                  <option value="SS">Inicio a Inicio (SS)</option>
+                  <option value="FF">Fin a Fin (FF)</option>
+                </select>
+                <button class="btn btn-primary btn-sm" id="btn-add-dependency">Vincular</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Footer -->
+      <div class="task-card-footer">
+        <button class="btn btn-danger btn-sm" id="btn-delete-task-from-card">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+          Eliminar Tarea
+        </button>
+
+        <div style="display:flex; gap:8px;">
+          <button class="btn btn-secondary" id="btn-cancel-task-card">Cerrar</button>
+          <button class="btn btn-primary" id="btn-save-task-card">Guardar Cambios</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================================================== -->
+  <!-- MODAL: NUEVO PROYECTO -->
+  <!-- ======================================================== -->
+  <div class="modal-overlay" id="modal-new-project-overlay">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <div class="modal-title">Crear Nuevo Proyecto</div>
+        <button class="modal-close-btn" id="btn-close-new-project-modal">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label">Nombre del Proyecto</label>
+          <input type="text" class="form-control" id="new-project-name" placeholder="Ej: Rediseño Web 2027" required />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Descripción</label>
+          <textarea class="form-control" id="new-project-desc" rows="3" placeholder="Objetivos y alcance del proyecto..."></textarea>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Color de Identificación</label>
+          <div class="color-picker-row" id="new-project-color-picker">
+            <div class="color-swatch-dot active" data-color="#0284c7" style="background:#0284c7;"></div>
+            <div class="color-swatch-dot" data-color="#16a34a" style="background:#16a34a;"></div>
+            <div class="color-swatch-dot" data-color="#ea580c" style="background:#ea580c;"></div>
+            <div class="color-swatch-dot" data-color="#8b5cf6" style="background:#8b5cf6;"></div>
+            <div class="color-swatch-dot" data-color="#ec4899" style="background:#ec4899;"></div>
+            <div class="color-swatch-dot" data-color="#0f766e" style="background:#0f766e;"></div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" id="btn-cancel-new-project">Cancelar</button>
+        <button class="btn btn-primary" id="btn-create-project-submit">Crear Proyecto</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast notifications -->
+  <div class="toast-container" id="toast-container"></div>
+
+  <!-- App JavaScript Modules -->
+  <script src="/js/api.js"></script>
+  <script src="/js/socket.js"></script>
+  <script src="/js/rich-editor.js"></script>
+  <script src="/js/gantt-grid.js"></script>
+  <script src="/js/gantt-timeline.js"></script>
+  <script src="/js/task-modal.js"></script>
+  <script src="/js/dashboard.js"></script>
+  <script src="/js/app.js"></script>
+
+
+  <!-- Floating Multi-Selection Action Bar -->
+  <div class="floating-selection-bar" id="floating-selection-bar">
+    <div class="selection-count-text">
+      <span class="selection-count-badge" id="selection-count-badge">0</span>
+      <span>elementos seleccionados</span>
+    </div>
+    <div class="selection-actions">
+      <button class="btn btn-danger btn-sm" id="btn-bulk-delete-selection" style="background:#ef4444; color:#fff; border:none; display:flex; align-items:center; gap:6px; padding:6px 12px; border-radius:6px; cursor:pointer; font-weight:600;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+        <span>Eliminar seleccionados</span>
+      </button>
+      <button class="btn btn-secondary btn-sm" id="btn-clear-selection" title="Deseleccionar todo" style="background:#334155; color:#cbd5e1; border:none; padding:6px 10px; border-radius:6px; cursor:pointer; font-weight:600;">
+        ✕
+      </button>
+    </div>
+  </div>
+
+
+  <!-- Manage & Open Projects Modal -->
+  <div class="modal-overlay" id="modal-manage-projects-overlay">
+    <div class="modal-dialog" style="max-width: 650px; width: 90%;">
+      <div class="modal-header">
+        <div style="display:flex; align-items:center; gap:8px;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0284c7" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+          <h3 style="margin:0; font-size:16px; font-weight:700;">Administrar Proyectos</h3>
+        </div>
+        <button class="modal-close-btn" id="btn-close-projects-manager">✕</button>
+      </div>
+      <div class="modal-body" style="padding:16px 20px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; gap:10px;">
+          <input type="text" id="input-search-projects" class="form-input" placeholder="Buscar proyectos por nombre..." style="flex:1; padding:8px 12px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px;" />
+          <button class="btn btn-primary" id="btn-mgr-new-project" style="padding:8px 14px; font-size:13px; display:flex; align-items:center; gap:6px;">
+            + Nuevo
+          </button>
+          <button class="btn btn-secondary" id="btn-mgr-import-project" style="padding:8px 14px; font-size:13px; display:flex; align-items:center; gap:6px;">
+            ⬆ Importar (.uxgantt)
+          </button>
+        </div>
+        
+        <div id="projects-manager-list" style="max-height:360px; overflow-y:auto; display:flex; flex-direction:column; gap:8px;">
+          <!-- Injected dynamically -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>

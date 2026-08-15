@@ -1,0 +1,563 @@
+/* Gantt Split Pane & Canvas Styling */
+.gantt-container {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  position: relative;
+  background: #ffffff;
+  overflow: hidden;
+}
+
+/* Left Task Grid Table */
+.gantt-grid-pane {
+  width: 500px;
+  min-width: 280px;
+  max-width: 750px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--border-medium);
+  background: #ffffff;
+  z-index: 10;
+  flex-shrink: 0;
+  position: relative;
+}
+
+.gantt-resizer {
+  width: 6px;
+  height: 100%;
+  position: absolute;
+  top: 0;
+  right: -3px;
+  cursor: col-resize;
+  z-index: 20;
+  background: transparent;
+  transition: background var(--transition-fast);
+}
+.gantt-resizer:hover, .gantt-resizer.resizing {
+  background: #0284c7;
+}
+
+/* Table Header */
+.grid-header {
+  height: var(--gantt-header-height);
+  background: #f8fafc;
+  border-bottom: 2px solid var(--border-medium);
+  display: flex;
+  align-items: stretch;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  user-select: none;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.grid-col {
+  display: flex;
+  align-items: center;
+  padding: 0 8px;
+  border-right: 1px solid var(--border-light);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.grid-col:last-child {
+  border-right: none;
+}
+
+.col-num { width: 36px; justify-content: center; flex-shrink: 0; }
+.col-status { width: 34px; justify-content: center; flex-shrink: 0; }
+.col-name { flex: 1; min-width: 150px; }
+.col-start { width: 85px; flex-shrink: 0; }
+.col-end { width: 85px; flex-shrink: 0; }
+.col-assigned { width: 115px; flex-shrink: 0; }
+.col-progress { width: 55px; justify-content: center; flex-shrink: 0; }
+
+/* Table Body */
+.grid-body {
+  flex: 1;
+  overflow-y: scroll;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+.grid-body::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.grid-body::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+}
+
+.grid-row {
+  height: var(--gantt-row-height);
+  display: flex;
+  align-items: stretch;
+  border-bottom: 1px solid var(--border-light);
+  font-size: 12px;
+  color: var(--text-main);
+  transition: background var(--transition-fast);
+  cursor: pointer;
+  user-select: none;
+}
+.grid-row:hover {
+  background: #f1f5f9;
+}
+.grid-row.selected {
+  background: #e0f2fe;
+}
+.grid-row.is-phase {
+  background: #f8fafc;
+  font-weight: 600;
+}
+.grid-row.is-milestone {
+  font-style: italic;
+}
+
+.task-name-cell {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  width: 100%;
+}
+.phase-toggle-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px;
+  color: var(--text-muted);
+  font-size: 10px;
+  width: 16px;
+  height: 16px;
+  border-radius: 3px;
+}
+.phase-toggle-btn:hover {
+  background: var(--border-light);
+  color: var(--text-main);
+}
+.phase-bar-color-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.avatar-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #0284c7;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 600;
+  margin-right: 4px;
+  flex-shrink: 0;
+}
+
+/* Right Gantt Timeline Pane */
+.gantt-timeline-pane {
+  flex: 1;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: #ffffff;
+  position: relative;
+}
+
+.timeline-header-wrapper {
+  height: var(--gantt-header-height);
+  background: #f8fafc;
+  border-bottom: 2px solid var(--border-medium);
+  overflow: hidden;
+  flex-shrink: 0;
+  position: relative;
+}
+
+.timeline-header-scroll {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+
+.timeline-header-row-primary {
+  height: 28px;
+  display: flex;
+  align-items: center;
+  border-bottom: 1px solid var(--border-light);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-main);
+}
+.timeline-header-cell-primary {
+  padding: 0 8px;
+  border-right: 1px solid var(--border-light);
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  white-space: nowrap;
+}
+
+.timeline-header-row-secondary {
+  height: 26px;
+  display: flex;
+  align-items: center;
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+.timeline-header-cell-secondary {
+  border-right: 1px solid var(--border-light);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+.timeline-header-cell-secondary.is-weekend {
+  background: #f1f5f9;
+  color: #94a3b8;
+}
+.timeline-header-cell-secondary.is-today {
+  background: #fee2e2;
+  color: #dc2626;
+  font-weight: 700;
+}
+
+/* Timeline Body Canvas */
+.timeline-body {
+  flex: 1;
+  overflow: auto;
+  position: relative;
+  scrollbar-width: thin;
+}
+.timeline-body::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.timeline-body::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+
+.timeline-canvas-container {
+  position: relative;
+  min-height: 100%;
+}
+
+/* Grid Lines Layer */
+.timeline-grid-lines {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  display: flex;
+  z-index: 1;
+}
+.timeline-grid-column {
+  border-right: 1px solid var(--gantt-grid-line);
+  height: 100%;
+  flex-shrink: 0;
+}
+.timeline-grid-column.is-weekend {
+  background: rgba(241, 245, 249, 0.6);
+}
+
+.timeline-grid-rows {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 2;
+}
+.timeline-grid-row-line {
+  height: var(--gantt-row-height);
+  border-bottom: 1px solid var(--border-light);
+  width: 100%;
+}
+
+/* Dependency Lines Layer (SVG) */
+.timeline-svg-dependencies {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 4;
+}
+.dep-line {
+  stroke: #64748b;
+  stroke-width: 1.8px;
+  fill: none;
+  transition: stroke var(--transition-fast);
+}
+.dep-line:hover {
+  stroke: #0284c7;
+  stroke-width: 2.5px;
+}
+
+/* Today Line */
+.timeline-today-line {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: #ef4444;
+  z-index: 5;
+  pointer-events: none;
+}
+.timeline-today-badge {
+  position: absolute;
+  top: 2px;
+  left: -18px;
+  background: #ef4444;
+  color: #fff;
+  font-size: 9px;
+  font-weight: 700;
+  padding: 1px 4px;
+  border-radius: 3px;
+}
+
+/* Gantt Bars Layer */
+.timeline-bars-layer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 8;
+  pointer-events: auto;
+}
+
+/* Individual Gantt Bar */
+.gantt-bar-item {
+  position: absolute;
+  height: 22px;
+  border-radius: 5px;
+  cursor: grab;
+  display: flex;
+  align-items: center;
+  user-select: none;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.18);
+  transition: box-shadow var(--transition-fast), outline var(--transition-fast);
+  color: #fff;
+  font-size: 11px;
+  z-index: 8;
+}
+.gantt-bar-item:hover {
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.28);
+  z-index: 15;
+}
+.gantt-bar-item.dragging {
+  cursor: grabbing;
+  opacity: 0.88;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
+  z-index: 25;
+}
+.gantt-bar-item.selected {
+  outline: 2px solid #0284c7;
+  outline-offset: 2px;
+}
+
+/* Progress Fill within Bar */
+.gantt-bar-progress {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.22);
+  border-radius: 5px 0 0 5px;
+  pointer-events: none;
+}
+.gantt-bar-progress.full {
+  border-radius: 5px;
+}
+
+/* Bar Resize Handles */
+.gantt-bar-handle {
+  position: absolute;
+  top: 0;
+  width: 8px;
+  height: 100%;
+  cursor: ew-resize;
+  z-index: 12;
+}
+.gantt-bar-handle-left {
+  left: 0;
+  border-top-left-radius: 5px;
+  border-bottom-left-radius: 5px;
+}
+.gantt-bar-handle-right {
+  right: 0;
+  border-top-right-radius: 5px;
+  border-bottom-right-radius: 5px;
+}
+.gantt-bar-handle:hover {
+  background: rgba(255, 255, 255, 0.5);
+}
+
+/* Bar Label (Outside right or Inside) */
+.gantt-bar-label {
+  position: absolute;
+  white-space: nowrap;
+  font-size: 11px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  pointer-events: none;
+  z-index: 9;
+}
+
+/* Phase Summary Bar */
+.gantt-phase-bar {
+  position: absolute;
+  height: 12px;
+  background: #334155;
+  border-radius: 3px;
+  cursor: pointer;
+  z-index: 9;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.22);
+  display: flex;
+  align-items: center;
+  user-select: none;
+  transition: opacity var(--transition-fast);
+}
+.gantt-phase-bar:hover {
+  opacity: 0.92;
+}
+.gantt-phase-bracket-left, .gantt-phase-bracket-right {
+  position: absolute;
+  top: 0;
+  width: 0;
+  height: 0;
+  border-style: solid;
+  pointer-events: none;
+}
+.gantt-phase-bracket-left {
+  left: 0;
+  border-width: 14px 7px 0 0;
+  border-color: #334155 transparent transparent transparent;
+}
+.gantt-phase-bracket-right {
+  right: 0;
+  border-width: 14px 0 0 7px;
+  border-color: #334155 transparent transparent transparent;
+}
+.gantt-phase-progress {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  background: rgba(255, 255, 255, 0.25);
+  border-radius: 3px 0 0 3px;
+  pointer-events: none;
+}
+
+/* Milestone Diamond */
+.gantt-milestone-diamond {
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  transform: rotate(45deg);
+  background: #0284c7;
+  border: 2px solid #ffffff;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.25);
+  cursor: grab;
+  z-index: 10;
+  transition: transform var(--transition-fast), background var(--transition-fast);
+  user-select: none;
+}
+.gantt-milestone-diamond:hover {
+  transform: rotate(45deg) scale(1.25);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.35);
+  z-index: 20;
+}
+.gantt-milestone-diamond.dragging {
+  cursor: grabbing;
+  transform: rotate(45deg) scale(1.35);
+  box-shadow: 0 5px 14px rgba(0, 0, 0, 0.4);
+  z-index: 30;
+}
+.gantt-milestone-diamond.completed {
+  background: #22c55e;
+}
+
+
+/* Row Drag and Drop Styles */
+.row-drag-handle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #94a3b8;
+  cursor: grab;
+  font-size: 11px;
+  width: 14px;
+  height: 20px;
+  user-select: none;
+  margin-right: 2px;
+  transition: color var(--transition-fast);
+}
+.row-drag-handle:hover {
+  color: #0284c7;
+}
+
+.grid-row.row-dragging {
+  opacity: 0.45;
+  background: #e0f2fe !important;
+}
+
+.grid-row.drop-above {
+  border-top: 2px solid #0284c7 !important;
+}
+
+.grid-row.drop-below {
+  border-bottom: 2px solid #0284c7 !important;
+}
+
+.grid-row.drop-inside-phase {
+  background: #dbeafe !important;
+  outline: 2px dashed #0284c7 !important;
+  outline-offset: -2px;
+}
+
+
+/* Timeline Drop Guide */
+.gantt-row-drop-guide {
+  position: absolute;
+  left: 0;
+  right: 0;
+  width: 100%;
+  height: 3px;
+  background: #0284c7;
+  box-shadow: 0 0 8px rgba(2, 132, 199, 0.7);
+  z-index: 35;
+  pointer-events: none;
+  display: none;
+}
+
+.gantt-bar-item.dragging,
+.gantt-milestone-diamond.dragging,
+.gantt-phase-bar.dragging {
+  z-index: 50 !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3) !important;
+  opacity: 0.92;
+}
