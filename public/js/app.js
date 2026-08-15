@@ -7,31 +7,39 @@ class AppController {
     this.ganttGrid = null;
     this.ganttTimeline = null;
     this.openProjectIds = new Set();
+    this.isInitialized = false;
     this.init();
   }
 
   async init() {
-    // 1. Initialize real-time socket
-    if (window.syncSocket) {
-      window.syncSocket.init();
-    }
-
-    // 2. Initialize Gantt components
+    // 1. Initialize Gantt UI components
     this.ganttGrid = new window.GanttGrid("gantt-grid-rows-container");
     this.ganttTimeline = new window.GanttTimeline(this.ganttGrid);
     window.ganttGrid = this.ganttGrid;
     window.ganttTimeline = this.ganttTimeline;
 
-    // 3. Bind UI event listeners
+    // 2. Bind UI event listeners
     this.bindEvents();
+  }
 
-    // 4. Load projects list & restore open tabs
+  async initWorkspace() {
+    if (this.isInitialized && this.projects.length > 0) return;
+    this.isInitialized = true;
+
+    // 1. Initialize real-time socket
+    if (window.syncSocket) {
+      window.syncSocket.init();
+    }
+
+    // 2. Load projects list & restore open tabs
     await this.loadProjects();
 
-    // 5. Select initial project (from URL hash, first open tab, or first project)
+    // 3. Select initial project (from URL hash, first open tab, or first project)
     const hash = window.location.hash.replace("#", "");
     const initialId = hash ? parseInt(hash) : (Array.from(this.openProjectIds)[0] || this.projects[0]?.id || 1);
-    await this.openProjectInTab(initialId);
+    if (initialId) {
+      await this.openProjectInTab(initialId);
+    }
   }
 
   bindEvents() {
@@ -193,7 +201,6 @@ class AppController {
     try {
       this.projects = await API.getProjects();
       
-      // Load stored open tab IDs
       const savedTabs = localStorage.getItem("uxcribe_open_tabs");
       if (savedTabs) {
         try {
@@ -204,7 +211,6 @@ class AppController {
         } catch (e) {}
       }
 
-      // If no open tabs stored or valid, open all existing projects by default
       if (this.openProjectIds.size === 0) {
         this.projects.forEach(p => this.openProjectIds.add(p.id));
       }
@@ -282,11 +288,11 @@ class AppController {
       this.currentProject = project;
       window.location.hash = `#${projectId}`;
 
-      // Update Topbar indicator
+      // Update indicator
       document.getElementById("current-project-name").textContent = project.name;
       document.getElementById("current-project-color").style.background = project.color || "#0284c7";
 
-      // Join real-time socket room
+      // Join socket room
       if (window.syncSocket) {
         window.syncSocket.joinProject(projectId);
       }
@@ -350,7 +356,7 @@ class AppController {
             <button class="btn btn-sm btn-open-card" style="padding:6px 12px; font-size:12px; background:${isOpen ? "#e0f2fe" : "#0284c7"}; color:${isOpen ? "#0369a1" : "#ffffff"}; border:none; border-radius:6px; cursor:pointer; font-weight:600;">
               ${isOpen ? "En Pestaña" : "Abrir Pestaña"}
             </button>
-            <a href="${API.exportProjectUrl(p.id)}" class="btn btn-sm" style="padding:6px 10px; font-size:12px; background:#f1f5f9; color:#334155; border:1px solid #cbd5e1; border-radius:6px; text-decoration:none; display:flex; align-items:center;" title="Exportar JSON" download>
+            <a href="${API.exportProjectUrl(p.id)}" class="btn btn-sm" style="padding:6px 10px; font-size:12px; background:#f1f5f9; color:#334155; border:1px solid #cbd5e1; border-radius:6px; text-decoration:none; display:flex; align-items:center;" title="Exportar paquete .uxgantt" download>
               ⬇
             </a>
             <button class="btn btn-sm btn-delete-card" style="padding:6px 10px; font-size:12px; background:#fee2e2; color:#ef4444; border:none; border-radius:6px; cursor:pointer;" title="Eliminar proyecto">
@@ -411,7 +417,6 @@ class AppController {
       else pane.classList.remove("active");
     });
 
-    // Toolbar visibility
     const toolbar = document.getElementById("gantt-view-toolbar");
     if (toolbar) {
       toolbar.style.display = viewName === "gantt" ? "flex" : "none";

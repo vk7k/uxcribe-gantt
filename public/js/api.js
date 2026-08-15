@@ -1,4 +1,4 @@
-// REST API client for uxcribe-gantt
+// REST API client for uxcribe-gantt with JWT Authentication
 const API = {
   // Auth Token Management
   getToken() {
@@ -16,6 +16,32 @@ const API = {
     if (token) headers["Authorization"] = `Bearer ${token}`;
     if (isJson) headers["Content-Type"] = "application/json";
     return headers;
+  },
+
+  async request(url, options = {}) {
+    options.headers = options.headers || {};
+    const token = this.getToken();
+    if (token && !options.headers["Authorization"]) {
+      options.headers["Authorization"] = `Bearer ${token}`;
+    }
+
+    const res = await fetch(url, options);
+
+    if (res.status === 401) {
+      this.logout();
+      if (window.Auth) {
+        window.Auth.currentUser = null;
+        window.Auth.renderUserBadge();
+        window.Auth.showAuthGate();
+      }
+      throw new Error("No autorizado. Inicia sesión para continuar.");
+    }
+
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.error || "Error en la solicitud");
+    }
+    return data;
   },
 
   async login(email, password) {
@@ -49,7 +75,10 @@ const API = {
       const res = await fetch("/api/auth/me", {
         headers: this.getAuthHeaders()
       });
-      if (!res.ok) return null;
+      if (!res.ok) {
+        this.setToken(null);
+        return null;
+      }
       const data = await res.json();
       return data.user;
     } catch (e) {
@@ -59,22 +88,18 @@ const API = {
 
   async getUsers() {
     try {
-      const res = await fetch("/api/auth/users", {
-        headers: this.getAuthHeaders()
-      });
-      return await res.json();
+      return await this.request("/api/auth/users");
     } catch (e) {
       return [];
     }
   },
 
   async updateProfile(profileData) {
-    const res = await fetch("/api/auth/profile", {
+    return await this.request("/api/auth/profile", {
       method: "PUT",
-      headers: this.getAuthHeaders(),
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(profileData)
     });
-    return await res.json();
   },
 
   logout() {
@@ -82,196 +107,173 @@ const API = {
   },
 
   // Projects
-    async importProjectPackage(file) {
+  async importProjectPackage(file) {
     const formData = new FormData();
     formData.append("file", file);
-    const res = await fetch("/api/projects/import", {
+    return await this.request("/api/projects/import", {
       method: "POST",
       body: formData
     });
-    const data = await res.json();
-    if (!res.ok) {
-      throw new Error(data.error || "Error al importar el proyecto");
-    }
-    return data;
   },
 
   async importProject(projectData) {
-    const res = await fetch("/api/projects/import", {
+    return await this.request("/api/projects/import", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(projectData)
     });
-    const data = await res.json();
-    if (!res.ok) {
-      throw new Error(data.error || "Error al importar el proyecto");
-    }
-    return data;
   },
 
   exportProjectUrl(id) {
-    return `/api/projects/${id}/export`;
+    const token = this.getToken();
+    return `/api/projects/${id}/export${token ? `?token=${encodeURIComponent(token)}` : ""}`;
   },
+
   async getProjects() {
-    const res = await fetch("/api/projects");
-    return res.json();
+    return await this.request("/api/projects");
   },
+
   async getProject(id) {
-    const res = await fetch(`/api/projects/${id}`);
-    return res.json();
+    return await this.request(`/api/projects/${id}`);
   },
+
   async createProject(data) {
-    const res = await fetch("/api/projects", {
+    return await this.request("/api/projects", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data)
     });
-    return res.json();
   },
+
   async updateProject(id, data) {
-    const res = await fetch(`/api/projects/${id}`, {
+    return await this.request(`/api/projects/${id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data)
     });
-    return res.json();
   },
+
   async deleteProject(id) {
-    const res = await fetch(`/api/projects/${id}`, { method: "DELETE" });
-    return res.json();
+    return await this.request(`/api/projects/${id}`, { method: "DELETE" });
   },
+
   async getProjectStats(id) {
-    const res = await fetch(`/api/projects/${id}/stats`);
-    return res.json();
+    return await this.request(`/api/projects/${id}/stats`);
   },
 
   // Tasks
   async getTask(id) {
-    const res = await fetch(`/api/tasks/${id}`);
-    return res.json();
+    return await this.request(`/api/tasks/${id}`);
   },
+
   async createTask(data) {
-    const res = await fetch("/api/tasks", {
+    return await this.request("/api/tasks", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data)
     });
-    return res.json();
   },
+
   async updateTask(id, data) {
-    const res = await fetch(`/api/tasks/${id}`, {
+    return await this.request(`/api/tasks/${id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data)
     });
-    return res.json();
   },
+
   async moveTask(id, data) {
-    const res = await fetch(`/api/tasks/${id}/move`, {
+    return await this.request(`/api/tasks/${id}/move`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data)
     });
-    return res.json();
   },
-    async reorderTasks(projectId, tasksOrder) {
-    const res = await fetch("/api/tasks/reorder", {
+
+  async reorderTasks(projectId, tasksOrder) {
+    return await this.request("/api/tasks/reorder", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ projectId, tasksOrder })
     });
-    return res.json();
   },
-      async bulkMoveTasks(projectId, moves) {
-    const res = await fetch("/api/tasks/bulk-move", {
+
+  async bulkMoveTasks(projectId, moves) {
+    return await this.request("/api/tasks/bulk-move", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ projectId, moves })
     });
-    return res.json();
   },
+
   async bulkDeleteTasks(projectId, taskIds) {
-    const res = await fetch("/api/tasks/bulk-delete", {
+    return await this.request("/api/tasks/bulk-delete", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ projectId, taskIds })
     });
-    return res.json();
   },
+
   async deleteTask(id) {
-    const res = await fetch(`/api/tasks/${id}`, { method: "DELETE" });
-    return res.json();
+    return await this.request(`/api/tasks/${id}`, { method: "DELETE" });
   },
 
   // Comments
   async addComment(taskId, data) {
-    const res = await fetch(`/api/comments/task/${taskId}`, {
+    return await this.request(`/api/comments/task/${taskId}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data)
     });
-    return res.json();
   },
+
   async deleteComment(id) {
-    const res = await fetch(`/api/comments/${id}`, { method: "DELETE" });
-    return res.json();
+    return await this.request(`/api/comments/${id}`, { method: "DELETE" });
   },
 
   // Attachments
   async uploadAttachment(taskId, file) {
     const formData = new FormData();
     formData.append("file", file);
-    const res = await fetch(`/api/attachments/task/${taskId}`, {
+    return await this.request(`/api/attachments/task/${taskId}`, {
       method: "POST",
       body: formData
     });
-    return res.json();
   },
+
   async deleteAttachment(id) {
-    const res = await fetch(`/api/attachments/${id}`, { method: "DELETE" });
-    return res.json();
+    return await this.request(`/api/attachments/${id}`, { method: "DELETE" });
   },
 
   // Checklists
   async addChecklistItem(taskId, text) {
-    const res = await fetch(`/api/checklists/task/${taskId}`, {
+    return await this.request(`/api/checklists/task/${taskId}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ text })
     });
-    return res.json();
   },
+
   async toggleChecklistItem(id) {
-    const res = await fetch(`/api/checklists/${id}/toggle`, { method: "PATCH" });
-    return res.json();
+    return await this.request(`/api/checklists/${id}/toggle`, { method: "PATCH" });
   },
+
   async deleteChecklistItem(id) {
-    const res = await fetch(`/api/checklists/${id}`, { method: "DELETE" });
-    return res.json();
+    return await this.request(`/api/checklists/${id}`, { method: "DELETE" });
   },
 
   // Dependencies
-  async addDependency(predecessorId, successorId, type = "FS") {
-    const res = await fetch("/api/dependencies", {
+  async createDependency(data) {
+    return await this.request("/api/dependencies", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ predecessorId, successorId, type })
+      body: JSON.stringify(data)
     });
-    return res.json();
-  },
-  async deleteDependency(id) {
-    const res = await fetch(`/api/dependencies/${id}`, { method: "DELETE" });
-    return res.json();
   },
 
-  // Inline Image Upload for Rich Editor
-  async uploadInlineImage(file) {
-    const formData = new FormData();
-    formData.append("image", file);
-    const res = await fetch("/api/upload/inline-image", {
-      method: "POST",
-      body: formData
-    });
-    return res.json();
+  async deleteDependency(id) {
+    return await this.request(`/api/dependencies/${id}`, { method: "DELETE" });
   }
 };
+
+window.API = API;

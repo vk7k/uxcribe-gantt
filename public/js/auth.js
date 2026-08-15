@@ -1,32 +1,33 @@
-// Authentication & User Session Manager
+// Authentication & User Session Manager with Full Gate Support
 class AuthManager {
   constructor() {
     this.currentUser = null;
     this.allUsers = [];
-    this.mode = "login"; // "login" or "register"
+    this.mode = "login";
     this.init();
   }
 
   async init() {
     this.bindEvents();
-    await this.checkSession();
+    const user = await this.checkSession();
+
+    if (!user) {
+      this.showAuthGate();
+    } else {
+      this.hideAuthGate();
+      if (window.App && !window.App.isInitialized) {
+        await window.App.initWorkspace();
+      }
+    }
+
     await this.loadUsers();
   }
 
   bindEvents() {
-    const modal = document.getElementById("modal-auth-overlay");
-    const btnOpen = document.getElementById("btn-login-open");
-    const btnClose = document.getElementById("btn-close-auth-modal");
-    const tabLogin = document.getElementById("tab-auth-login");
-    const tabRegister = document.getElementById("tab-auth-register");
+    const tabLogin = document.getElementById("gate-tab-login");
+    const tabRegister = document.getElementById("gate-tab-register");
+    const form = document.getElementById("form-gate-auth");
     const btnLogout = document.getElementById("btn-logout");
-    const form = document.getElementById("form-auth-submit");
-
-    btnOpen?.addEventListener("click", () => this.openAuthModal("login"));
-    btnClose?.addEventListener("click", () => this.closeAuthModal());
-    modal?.addEventListener("click", (e) => {
-      if (e.target.id === "modal-auth-overlay") this.closeAuthModal();
-    });
 
     tabLogin?.addEventListener("click", () => this.setMode("login"));
     tabRegister?.addEventListener("click", () => this.setMode("register"));
@@ -42,58 +43,52 @@ class AuthManager {
     });
   }
 
+  showAuthGate() {
+    const gate = document.getElementById("auth-gate-screen");
+    const appContainer = document.querySelector(".app-container");
+    if (gate) gate.style.display = "flex";
+    if (appContainer) appContainer.style.display = "none";
+  }
+
+  hideAuthGate() {
+    const gate = document.getElementById("auth-gate-screen");
+    const appContainer = document.querySelector(".app-container");
+    if (gate) gate.style.display = "none";
+    if (appContainer) appContainer.style.display = "flex";
+  }
+
   setMode(mode) {
     this.mode = mode;
-    const title = document.getElementById("auth-modal-title");
-    const tabLogin = document.getElementById("tab-auth-login");
-    const tabRegister = document.getElementById("tab-auth-register");
-    const nameField = document.getElementById("field-auth-name");
-    const submitBtn = document.getElementById("btn-auth-action-submit");
-    const errorBanner = document.getElementById("auth-error-banner");
+    const tabLogin = document.getElementById("gate-tab-login");
+    const tabRegister = document.getElementById("gate-tab-register");
+    const nameField = document.getElementById("gate-field-name");
+    const submitBtn = document.getElementById("btn-gate-submit");
+    const errorBanner = document.getElementById("gate-auth-error");
 
     if (errorBanner) errorBanner.style.display = "none";
 
     if (mode === "login") {
-      if (title) title.textContent = "Iniciar Sesión";
       if (nameField) nameField.style.display = "none";
-      if (submitBtn) submitBtn.textContent = "Ingresar";
-      tabLogin.style.fontWeight = "700";
-      tabLogin.style.color = "#0284c7";
-      tabLogin.style.borderBottom = "2px solid #0284c7";
-      tabRegister.style.fontWeight = "500";
-      tabRegister.style.color = "#64748b";
-      tabRegister.style.borderBottom = "none";
+      if (submitBtn) submitBtn.textContent = "Iniciar Sesión";
+      tabLogin.classList.add("active");
+      tabRegister.classList.remove("active");
     } else {
-      if (title) title.textContent = "Crear Nueva Cuenta";
       if (nameField) nameField.style.display = "block";
-      if (submitBtn) submitBtn.textContent = "Registrarme";
-      tabRegister.style.fontWeight = "700";
-      tabRegister.style.color = "#0284c7";
-      tabRegister.style.borderBottom = "2px solid #0284c7";
-      tabLogin.style.fontWeight = "500";
-      tabLogin.style.color = "#64748b";
-      tabLogin.style.borderBottom = "none";
+      if (submitBtn) submitBtn.textContent = "Crear Cuenta y Comenzar";
+      tabRegister.classList.add("active");
+      tabLogin.classList.remove("active");
     }
-  }
-
-  openAuthModal(mode = "login") {
-    this.setMode(mode);
-    const modal = document.getElementById("modal-auth-overlay");
-    if (modal) modal.classList.add("active");
-  }
-
-  closeAuthModal() {
-    const modal = document.getElementById("modal-auth-overlay");
-    if (modal) modal.classList.remove("active");
   }
 
   async checkSession() {
     try {
       this.currentUser = await API.getMe();
       this.renderUserBadge();
+      return this.currentUser;
     } catch (e) {
       this.currentUser = null;
       this.renderUserBadge();
+      return null;
     }
   }
 
@@ -120,45 +115,43 @@ class AuthManager {
   }
 
   renderUserBadge() {
-    const btnLogin = document.getElementById("btn-login-open");
     const badge = document.getElementById("user-profile-badge");
     const nameEl = document.getElementById("user-display-name");
     const avatarEl = document.getElementById("user-avatar-img");
 
     if (this.currentUser) {
-      if (btnLogin) btnLogin.style.display = "none";
       if (badge) badge.style.display = "flex";
-      if (nameEl) nameEl.textContent = this.currentUser.name.split(" ")[0];
+      if (nameEl) nameEl.textContent = this.currentUser.name;
       if (avatarEl) avatarEl.src = this.currentUser.avatarUrl || "";
     } else {
-      if (btnLogin) btnLogin.style.display = "flex";
       if (badge) badge.style.display = "none";
     }
   }
 
   async handleAuthSubmit() {
-    const email = document.getElementById("input-auth-email")?.value.trim();
-    const password = document.getElementById("input-auth-password")?.value;
-    const name = document.getElementById("input-auth-name")?.value.trim();
-    const errorBanner = document.getElementById("auth-error-banner");
+    const email = document.getElementById("gate-input-email")?.value.trim();
+    const password = document.getElementById("gate-input-password")?.value;
+    const name = document.getElementById("gate-input-name")?.value.trim();
+    const errorBanner = document.getElementById("gate-auth-error");
 
     if (errorBanner) errorBanner.style.display = "none";
 
     try {
+      let res = null;
       if (this.mode === "login") {
-        const res = await API.login(email, password);
-        this.currentUser = res.user;
+        res = await API.login(email, password);
       } else {
         if (!name) throw new Error("Por favor ingresa tu nombre completo.");
-        const res = await API.register({ name, email, password });
-        this.currentUser = res.user;
+        res = await API.register({ name, email, password });
       }
 
+      this.currentUser = res.user;
       this.renderUserBadge();
-      this.closeAuthModal();
+      this.hideAuthGate();
       await this.loadUsers();
 
       if (window.App) {
+        await window.App.initWorkspace();
         window.App.showToast(`¡Bienvenido, ${this.currentUser.name}!`, "success");
       }
     } catch (err) {
@@ -173,8 +166,9 @@ class AuthManager {
     API.logout();
     this.currentUser = null;
     this.renderUserBadge();
+    this.showAuthGate();
     if (window.App) {
-      window.App.showToast("Sesión cerrada", "info");
+      window.App.currentProject = null;
     }
   }
 }
