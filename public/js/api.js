@@ -106,6 +106,52 @@ const API = {
     this.setToken(null);
   },
 
+  // Workspaces
+  async getWorkspaces() {
+    return await this.request("/api/workspaces");
+  },
+
+  async createWorkspace(data) {
+    return await this.request("/api/workspaces", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data)
+    });
+  },
+
+  async shareWorkspace(id, email, role = "EDITOR") {
+    return await this.request(`/api/workspaces/${id}/share`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, role })
+    });
+  },
+
+  async removeWorkspaceMember(workspaceId, userId) {
+    return await this.request(`/api/workspaces/${workspaceId}/members/${userId}`, {
+      method: "DELETE"
+    });
+  },
+
+  // Project Sharing & Members
+  async shareProject(id, email, role = "EDITOR") {
+    return await this.request(`/api/projects/${id}/share`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, role })
+    });
+  },
+
+  async getProjectMembers(id) {
+    return await this.request(`/api/projects/${id}/members`);
+  },
+
+  async removeProjectMember(projectId, userId) {
+    return await this.request(`/api/projects/${projectId}/members/${userId}`, {
+      method: "DELETE"
+    });
+  },
+
   // Projects
   async importProjectPackage(file) {
     const formData = new FormData();

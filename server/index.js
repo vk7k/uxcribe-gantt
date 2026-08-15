@@ -25,6 +25,7 @@ app.use("/uploads", express.static(config.uploadDir));
 app.use("/api/auth", require("./routes/auth"));
 
 // Protected API Routes (Strictly requires valid JWT Token)
+app.use("/api/workspaces", authRequired, require("./routes/workspaces"));
 app.use("/api/projects", authRequired, require("./routes/projects"));
 app.use("/api/tasks", authRequired, require("./routes/tasks"));
 app.use("/api/comments", authRequired, require("./routes/comments"));

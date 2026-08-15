@@ -195,6 +195,21 @@ class AppController {
     document.getElementById("input-search-projects")?.addEventListener("input", (e) => {
       this.renderProjectsManagerList(e.target.value.toLowerCase().trim());
     });
+
+    // Share Project Modal Handlers
+    document.getElementById("btn-share-project")?.addEventListener("click", () => {
+      this.openShareModal();
+    });
+    document.getElementById("btn-close-share-modal")?.addEventListener("click", () => {
+      this.closeShareModal();
+    });
+    document.getElementById("modal-share-project-overlay")?.addEventListener("click", (e) => {
+      if (e.target.id === "modal-share-project-overlay") this.closeShareModal();
+    });
+
+    document.getElementById("btn-send-share-invite")?.addEventListener("click", async () => {
+      await this.handleSendShareInvite();
+    });
   }
 
   async loadProjects() {
@@ -288,7 +303,7 @@ class AppController {
       this.currentProject = project;
       window.location.hash = `#${projectId}`;
 
-      // Update indicator
+      // Update Topbar indicator
       document.getElementById("current-project-name").textContent = project.name;
       document.getElementById("current-project-color").style.background = project.color || "#0284c7";
 
@@ -307,6 +322,134 @@ class AppController {
       if (this.projects.length > 0 && this.projects[0].id !== projectId) {
         this.selectProject(this.projects[0].id);
       }
+    }
+  }
+
+  // ==============================================================================
+  // SHARE PROJECT BY EMAIL
+  // ==============================================================================
+  async openShareModal() {
+    if (!this.currentProject) return;
+    const modal = document.getElementById("modal-share-project-overlay");
+    if (!modal) return;
+    
+    document.getElementById("share-modal-title").textContent = `Compartir "${this.currentProject.name}"`;
+    modal.classList.add("active");
+    await this.renderShareMembersList();
+  }
+
+  closeShareModal() {
+    const modal = document.getElementById("modal-share-project-overlay");
+    if (modal) modal.classList.remove("active");
+  }
+
+  async renderShareMembersList() {
+    const container = document.getElementById("share-members-list");
+    const countEl = document.getElementById("share-members-count");
+    if (!container || !this.currentProject) return;
+
+    container.innerHTML = `<div style="text-align:center; padding:15px; color:#94a3b8; font-size:12px;">Cargando miembros...</div>`;
+
+    try {
+      const data = await API.getProjectMembers(this.currentProject.id);
+      container.innerHTML = "";
+
+      let totalMembers = 0;
+
+      // 1. Owner
+      if (data.owner) {
+        totalMembers++;
+        const row = document.createElement("div");
+        row.style.cssText = "display:flex; align-items:center; justify-content:space-between; padding:8px 12px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px;";
+        row.innerHTML = `
+          <div style="display:flex; align-items:center; gap:10px;">
+            <img src="${data.owner.avatarUrl || ""}" style="width:28px; height:28px; border-radius:50%;" />
+            <div>
+              <div style="font-weight:600; font-size:13px; color:#1e293b;">${data.owner.name} <span style="font-size:10px; color:#eab308;" title="Dueño del Proyecto">👑</span></div>
+              <div style="font-size:11px; color:#64748b;">${data.owner.email}</div>
+            </div>
+          </div>
+          <span style="font-size:11px; font-weight:700; color:#0284c7; background:#e0f2fe; padding:3px 8px; border-radius:4px;">Dueño</span>
+        `;
+        container.appendChild(row);
+      }
+
+      // 2. Members
+      (data.members || []).forEach(m => {
+        totalMembers++;
+        const row = document.createElement("div");
+        row.style.cssText = "display:flex; align-items:center; justify-content:space-between; padding:8px 12px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px;";
+        
+        const roleLabel = m.role === "ADMIN" ? "Admin" : (m.role === "VIEWER" ? "Lector" : "Editor");
+
+        row.innerHTML = `
+          <div style="display:flex; align-items:center; gap:10px;">
+            <img src="${m.user.avatarUrl || ""}" style="width:28px; height:28px; border-radius:50%;" />
+            <div>
+              <div style="font-weight:600; font-size:13px; color:#1e293b;">${m.user.name}</div>
+              <div style="font-size:11px; color:#64748b;">${m.user.email}</div>
+            </div>
+          </div>
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span style="font-size:11px; font-weight:600; color:#475569; background:#f1f5f9; padding:3px 8px; border-radius:4px;">${roleLabel}</span>
+            <button class="btn-remove-member" style="background:none; border:none; color:#ef4444; cursor:pointer; font-size:13px; padding:2px 4px;" title="Remover acceso">✕</button>
+          </div>
+        `;
+
+        row.querySelector(".btn-remove-member")?.addEventListener("click", async () => {
+          if (confirm(`¿Remover acceso a ${m.user.name}?`)) {
+            await API.removeProjectMember(this.currentProject.id, m.userId);
+            this.showToast("Miembro removido", "info");
+            await this.renderShareMembersList();
+          }
+        });
+
+        container.appendChild(row);
+      });
+
+      // 3. Pending Invitations
+      (data.invitations || []).forEach(inv => {
+        const row = document.createElement("div");
+        row.style.cssText = "display:flex; align-items:center; justify-content:space-between; padding:8px 12px; background:#fffbeb; border:1px solid #fde68a; border-radius:6px;";
+        row.innerHTML = `
+          <div style="display:flex; align-items:center; gap:10px;">
+            <span style="font-size:16px;">✉️</span>
+            <div>
+              <div style="font-weight:600; font-size:13px; color:#92400e;">${inv.email}</div>
+              <div style="font-size:11px; color:#b45309;">Invitación pendiente por correo</div>
+            </div>
+          </div>
+          <span style="font-size:10px; font-weight:700; color:#d97706; background:#fef3c7; padding:3px 8px; border-radius:4px;">Pendiente</span>
+        `;
+        container.appendChild(row);
+      });
+
+      if (countEl) countEl.textContent = `${totalMembers} persona${totalMembers === 1 ? "" : "s"}`;
+    } catch (err) {
+      console.error("Error fetching project members:", err);
+    }
+  }
+
+  async handleSendShareInvite() {
+    if (!this.currentProject) return;
+    const emailInput = document.getElementById("input-share-email");
+    const roleSelect = document.getElementById("select-share-role");
+    const email = emailInput?.value.trim();
+    const role = roleSelect?.value || "EDITOR";
+
+    if (!email) {
+      alert("Por favor ingresa el correo electrónico a invitar.");
+      return;
+    }
+
+    try {
+      this.showToast("Enviando invitación por correo...", "info");
+      const res = await API.shareProject(this.currentProject.id, email, role);
+      this.showToast(res.message || "Invitación enviada", "success");
+      if (emailInput) emailInput.value = "";
+      await this.renderShareMembersList();
+    } catch (err) {
+      alert(err.message || "Error al compartir el proyecto");
     }
   }
 

@@ -8,28 +8,90 @@ generator client {
 }
 
 model User {
-  id          Int          @id @default(autoincrement())
+  id               Int               @id @default(autoincrement())
+  name             String
+  email            String            @unique
+  password         String
+  avatarUrl        String?           @db.Text
+  role             String            @default("MEMBER")
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  tasks            Task[]            @relation("TaskAssignee")
+  comments         Comment[]
+  attachments      Attachment[]
+  ownedWorkspaces  Workspace[]       @relation("WorkspaceOwner")
+  workspaceMembers WorkspaceMember[]
+  ownedProjects    Project[]         @relation("ProjectOwner")
+  projectMembers   ProjectMember[]
+}
+
+model Workspace {
+  id          Int               @id @default(autoincrement())
   name        String
-  email       String       @unique
-  password    String
-  avatarUrl   String?      @db.Text
-  role        String       @default("MEMBER")
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
-  tasks       Task[]       @relation("TaskAssignee")
-  comments    Comment[]
-  attachments Attachment[]
+  description String?           @db.Text
+  color       String?           @default("#0284c7")
+  ownerId     Int
+  owner       User              @relation("WorkspaceOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  members     WorkspaceMember[]
+  projects    Project[]
+  invitations Invitation[]
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+}
+
+model WorkspaceMember {
+  id          Int       @id @default(autoincrement())
+  workspaceId Int
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  userId      Int
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role        String    @default("EDITOR") // "ADMIN", "EDITOR", "VIEWER"
+  createdAt   DateTime  @default(now())
+
+  @@unique([workspaceId, userId])
 }
 
 model Project {
-  id          Int      @id @default(autoincrement())
+  id          Int             @id @default(autoincrement())
   name        String
-  description String?  @db.Text
-  color       String?  @default("#3b82f6")
-  isArchived  Boolean  @default(false)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  description String?         @db.Text
+  color       String?         @default("#3b82f6")
+  ownerId     Int?
+  owner       User?           @relation("ProjectOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  workspaceId Int?
+  workspace   Workspace?      @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
+  members     ProjectMember[]
+  invitations Invitation[]
+  isArchived  Boolean         @default(false)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
   tasks       Task[]
+}
+
+model ProjectMember {
+  id        Int      @id @default(autoincrement())
+  projectId Int
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role      String   @default("EDITOR") // "ADMIN", "EDITOR", "VIEWER"
+  createdAt DateTime @default(now())
+
+  @@unique([projectId, userId])
+}
+
+model Invitation {
+  id          Int        @id @default(autoincrement())
+  email       String
+  projectId   Int?
+  project     Project?   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  workspaceId Int?
+  workspace   Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  role        String     @default("EDITOR")
+  token       String     @unique
+  invitedById Int
+  status      String     @default("PENDING") // "PENDING", "ACCEPTED", "EXPIRED"
+  createdAt   DateTime   @default(now())
 }
 
 model Task {

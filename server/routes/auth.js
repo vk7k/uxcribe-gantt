@@ -5,7 +5,6 @@ const jwt = require("jsonwebtoken");
 const prisma = require("../db");
 const { JWT_SECRET, authRequired, authOptional } = require("../middleware/auth");
 
-// Helper to generate initials avatar SVG data URL
 function generateAvatar(name) {
   const initials = (name || "U")
     .split(" ")
@@ -20,7 +19,7 @@ function generateAvatar(name) {
   return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
 }
 
-// 1. Register User
+// 1. Register User & process pending invitations
 router.post("/register", async (req, res) => {
   try {
     const { name, email, password, role } = req.body;
@@ -56,12 +55,47 @@ router.post("/register", async (req, res) => {
       select: { id: true, name: true, email: true, avatarUrl: true, role: true, createdAt: true }
     });
 
+    // Check and fulfill any pending invitations for this email
+    const pendingInvites = await prisma.invitation.findMany({
+      where: { email: cleanEmail, status: "PENDING" }
+    });
+
+    for (const inv of pendingInvites) {
+      if (inv.projectId) {
+        try {
+          await prisma.projectMember.create({
+            data: {
+              projectId: inv.projectId,
+              userId: user.id,
+              role: inv.role
+            }
+          });
+        } catch (e) {}
+      }
+      if (inv.workspaceId) {
+        try {
+          await prisma.workspaceMember.create({
+            data: {
+              workspaceId: inv.workspaceId,
+              userId: user.id,
+              role: inv.role
+            }
+          });
+        } catch (e) {}
+      }
+      await prisma.invitation.update({
+        where: { id: inv.id },
+        data: { status: "ACCEPTED" }
+      });
+    }
+
     const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: "30d" });
 
     res.status(201).json({
       success: true,
       user,
-      token
+      token,
+      acceptedInvitesCount: pendingInvites.length
     });
   } catch (error) {
     console.error("Error registering user:", error);
@@ -116,8 +150,8 @@ router.get("/me", authRequired, (req, res) => {
   res.json({ user: req.user });
 });
 
-// 4. List All Users (for Task Assignee dropdowns, mentions & team presence)
-router.get("/users", authOptional, async (req, res) => {
+// 4. List All Users
+router.get("/users", authRequired, async (req, res) => {
   try {
     const users = await prisma.user.findMany({
       select: {
