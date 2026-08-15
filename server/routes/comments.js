@@ -1,10 +1,11 @@
 const express = require("express");
 const router = express.Router();
 const prisma = require("../db");
+const { authOptional } = require("../middleware/auth");
 const { broadcastToProject } = require("../socket");
 
 // Add comment to task
-router.post("/task/:taskId", async (req, res) => {
+router.post("/task/:taskId", authOptional, async (req, res) => {
   try {
     const taskId = parseInt(req.params.taskId);
     const { authorName, authorAvatar, content } = req.body;
@@ -22,15 +23,22 @@ router.post("/task/:taskId", async (req, res) => {
       return res.status(404).json({ error: "Tarea no encontrada" });
     }
 
-    const initials = authorName
-      ? authorName.split(" ").map(n => n[0]).slice(0, 2).join("").toUpperCase()
-      : "US";
+    let finalAuthorName = authorName || "Colaborador";
+    let finalAuthorAvatar = authorAvatar || null;
+    let userId = null;
+
+    if (req.user) {
+      finalAuthorName = req.user.name;
+      finalAuthorAvatar = req.user.avatarUrl;
+      userId = req.user.id;
+    }
 
     const comment = await prisma.comment.create({
       data: {
         taskId,
-        authorName: authorName || "Colaborador",
-        authorAvatar: authorAvatar || initials,
+        userId,
+        authorName: finalAuthorName,
+        authorAvatar: finalAuthorAvatar,
         content: content.trim()
       }
     });
@@ -44,7 +52,7 @@ router.post("/task/:taskId", async (req, res) => {
 });
 
 // Delete comment
-router.delete("/:id", async (req, res) => {
+router.delete("/:id", authOptional, async (req, res) => {
   try {
     const id = parseInt(req.params.id);
     const comment = await prisma.comment.findUnique({

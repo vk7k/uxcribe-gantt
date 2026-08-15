@@ -21,6 +21,7 @@ app.use(express.static(path.join(__dirname, "..", "public")));
 app.use("/uploads", express.static(config.uploadDir));
 
 // API Routes
+app.use("/api/auth", require("./routes/auth"));
 app.use("/api/projects", require("./routes/projects"));
 app.use("/api/tasks", require("./routes/tasks"));
 app.use("/api/comments", require("./routes/comments"));

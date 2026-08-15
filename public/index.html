@@ -64,6 +64,19 @@
           Exportar
         </button>
         <input type="file" id="input-import-json-file" accept=".uxgantt,.json,application/json,application/zip" style="display:none;" />
+
+        <!-- User Profile / Login Widget -->
+        <div id="user-auth-widget" style="display:flex; align-items:center; margin-left:6px;">
+          <button class="top-btn" id="btn-login-open" style="background:#0284c7; color:#ffffff; font-weight:600; gap:6px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+            Ingresar
+          </button>
+          <div id="user-profile-badge" style="display:none; align-items:center; gap:8px; cursor:pointer; padding:4px 10px; border-radius:6px; background:#334155; color:#f8fafc; font-size:12px; font-weight:600;">
+            <img id="user-avatar-img" src="" style="width:22px; height:22px; border-radius:50%;" />
+            <span id="user-display-name">Usuario</span>
+            <button id="btn-logout" title="Cerrar sesión" style="background:none; border:none; color:#94a3b8; cursor:pointer; font-size:12px; padding:0 2px;">✕</button>
+          </div>
+        </div>
       </div>
     </header>
 
@@ -298,7 +311,8 @@
 
         <div class="meta-field">
           <label class="meta-field-label">Asignado a</label>
-          <input type="text" class="meta-date-input" id="tc-assignee-input" placeholder="Ej: Mike Smith..." />
+          <input type="text" class="meta-date-input" id="tc-assignee-input" list="registered-users-list" placeholder="Ej: Mike Smith..." />
+          <datalist id="registered-users-list"></datalist>
         </div>
 
         <!-- Color Swatches -->
@@ -520,6 +534,7 @@
 
   <!-- App JavaScript Modules -->
   <script src="/js/api.js"></script>
+  <script src="/js/auth.js"></script>
   <script src="/js/socket.js"></script>
   <script src="/js/rich-editor.js"></script>
   <script src="/js/gantt-grid.js"></script>
@@ -571,6 +586,49 @@
         <div id="projects-manager-list" style="max-height:360px; overflow-y:auto; display:flex; flex-direction:column; gap:8px;">
           <!-- Injected dynamically -->
         </div>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- Auth Modal (Login / Register) -->
+  <div class="modal-overlay" id="modal-auth-overlay">
+    <div class="modal-dialog" style="max-width: 400px; width: 90%;">
+      <div class="modal-header">
+        <div style="display:flex; align-items:center; gap:8px;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0284c7" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+          <h3 id="auth-modal-title" style="margin:0; font-size:16px; font-weight:700;">Iniciar Sesión</h3>
+        </div>
+        <button class="modal-close-btn" id="btn-close-auth-modal">✕</button>
+      </div>
+      <div class="modal-body" style="padding:20px;">
+        <div style="display:flex; border-bottom:1px solid #e2e8f0; margin-bottom:16px;">
+          <button id="tab-auth-login" style="flex:1; padding:8px; border:none; background:none; font-weight:700; color:#0284c7; border-bottom:2px solid #0284c7; cursor:pointer;">Ingresar</button>
+          <button id="tab-auth-register" style="flex:1; padding:8px; border:none; background:none; font-weight:500; color:#64748b; cursor:pointer;">Crear Cuenta</button>
+        </div>
+
+        <div id="auth-error-banner" style="display:none; padding:10px 12px; background:#fee2e2; color:#ef4444; border-radius:6px; font-size:12px; margin-bottom:14px;"></div>
+
+        <form id="form-auth-submit" onsubmit="return false;">
+          <div id="field-auth-name" style="display:none; margin-bottom:14px;">
+            <label style="display:block; font-size:12px; font-weight:600; color:#475569; margin-bottom:4px;">Nombre Completo</label>
+            <input type="text" id="input-auth-name" class="form-input" placeholder="Ej: Víctor Mellado" style="width:100%; padding:9px 12px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px;" />
+          </div>
+
+          <div style="margin-bottom:14px;">
+            <label style="display:block; font-size:12px; font-weight:600; color:#475569; margin-bottom:4px;">Correo Electrónico</label>
+            <input type="email" id="input-auth-email" class="form-input" required placeholder="correo@ejemplo.com" style="width:100%; padding:9px 12px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px;" />
+          </div>
+
+          <div style="margin-bottom:20px;">
+            <label style="display:block; font-size:12px; font-weight:600; color:#475569; margin-bottom:4px;">Contraseña</label>
+            <input type="password" id="input-auth-password" class="form-input" required placeholder="Mínimo 6 caracteres" style="width:100%; padding:9px 12px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px;" />
+          </div>
+
+          <button type="submit" id="btn-auth-action-submit" class="btn btn-primary" style="width:100%; padding:10px; font-size:14px; font-weight:600;">
+            Ingresar
+          </button>
+        </form>
       </div>
     </div>
   </div>

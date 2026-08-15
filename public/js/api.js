@@ -1,5 +1,86 @@
 // REST API client for uxcribe-gantt
 const API = {
+  // Auth Token Management
+  getToken() {
+    return localStorage.getItem("uxcribe_auth_token");
+  },
+
+  setToken(token) {
+    if (token) localStorage.setItem("uxcribe_auth_token", token);
+    else localStorage.removeItem("uxcribe_auth_token");
+  },
+
+  getAuthHeaders(isJson = true) {
+    const headers = {};
+    const token = this.getToken();
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+    if (isJson) headers["Content-Type"] = "application/json";
+    return headers;
+  },
+
+  async login(email, password) {
+    const res = await fetch("/api/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Error al iniciar sesión");
+    if (data.token) this.setToken(data.token);
+    return data;
+  },
+
+  async register(userData) {
+    const res = await fetch("/api/auth/register", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(userData)
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Error al registrar usuario");
+    if (data.token) this.setToken(data.token);
+    return data;
+  },
+
+  async getMe() {
+    const token = this.getToken();
+    if (!token) return null;
+    try {
+      const res = await fetch("/api/auth/me", {
+        headers: this.getAuthHeaders()
+      });
+      if (!res.ok) return null;
+      const data = await res.json();
+      return data.user;
+    } catch (e) {
+      return null;
+    }
+  },
+
+  async getUsers() {
+    try {
+      const res = await fetch("/api/auth/users", {
+        headers: this.getAuthHeaders()
+      });
+      return await res.json();
+    } catch (e) {
+      return [];
+    }
+  },
+
+  async updateProfile(profileData) {
+    const res = await fetch("/api/auth/profile", {
+      method: "PUT",
+      headers: this.getAuthHeaders(),
+      body: JSON.stringify(profileData)
+    });
+    return await res.json();
+  },
+
+  logout() {
+    this.setToken(null);
+  },
+
   // Projects
     async importProjectPackage(file) {
     const formData = new FormData();

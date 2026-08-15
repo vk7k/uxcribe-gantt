@@ -1,38 +1,22 @@
 const express = require("express");
 const router = express.Router();
 const multer = require("multer");
-const path = require("path");
-const fs = require("fs");
 const prisma = require("../db");
-const { uploadDir } = require("../config");
+const storageService = require("../services/storage");
+const { authOptional } = require("../middleware/auth");
 const { broadcastToProject } = require("../socket");
 
-// Configure multer storage
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, { recursive: true });
-    }
-    cb(null, uploadDir);
-  },
-  filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
-    const ext = path.extname(file.originalname);
-    cb(null, `att-${uniqueSuffix}${ext}`);
-  }
-});
-
 const upload = multer({
-  storage,
-  limits: { fileSize: 25 * 1024 * 1024 } // 25MB max
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 50 * 1024 * 1024 } // 50MB
 });
 
 // Upload attachment to task
-router.post("/task/:taskId", upload.single("file"), async (req, res) => {
+router.post("/task/:taskId", authOptional, upload.single("file"), async (req, res) => {
   try {
     const taskId = parseInt(req.params.taskId);
     if (!req.file) {
-      return res.status(400).json({ error: "No se proporcionó ningún archivo" });
+      return res.status(400).json({ error: "No se proporcionó ningún archivo." });
     }
 
     const task = await prisma.task.findUnique({
@@ -41,50 +25,78 @@ router.post("/task/:taskId", upload.single("file"), async (req, res) => {
     });
 
     if (!task) {
-      return res.status(404).json({ error: "Tarea no encontrada" });
+      return res.status(404).json({ error: "Tarea no encontrada." });
     }
 
-    const attachment = await prisma.attachment.create({
-      data: {
-        taskId,
-        fileName: req.file.filename,
-        originalName: req.file.originalname,
-        fileSize: req.file.size,
-        mimeType: req.file.mimetype,
-        filePath: `/uploads/${req.file.filename}`
-      }
+    const userId = req.user ? req.user.id : null;
+
+    const attachment = await storageService.saveTaskAttachment({
+      buffer: req.file.buffer,
+      originalName: req.file.originalname,
+      mimeType: req.file.mimetype,
+      taskId,
+      userId
     });
 
-    broadcastToProject(task.projectId, "attachment-uploaded", { taskId, attachment });
-    res.status(201).json(attachment);
+    // Don't send large buffer over JSON
+    const { fileData, ...cleanAttachment } = attachment;
+
+    broadcastToProject(task.projectId, "attachment-uploaded", { taskId, attachment: cleanAttachment });
+    res.status(201).json(cleanAttachment);
   } catch (error) {
     console.error("Error uploading attachment:", error);
-    res.status(500).json({ error: "Error al subir archivo adjunto" });
+    res.status(400).json({ error: error.message || "Error al subir archivo adjunto" });
   }
 });
 
-// Download attachment
+// Download / View attachment
 router.get("/:id/download", async (req, res) => {
   try {
     const id = parseInt(req.params.id);
-    const attachment = await prisma.attachment.findUnique({ where: { id } });
-    if (!attachment) {
-      return res.status(404).json({ error: "Archivo no encontrado" });
+    const content = await storageService.getAttachmentContent(id);
+
+    if (content.type === "redirect") {
+      return res.redirect(content.url);
     }
 
-    const fullPath = path.join(uploadDir, attachment.fileName);
-    if (!fs.existsSync(fullPath)) {
-      return res.status(404).json({ error: "El archivo físico no existe en el disco" });
-    }
+    res.setHeader("Content-Disposition", `attachment; filename="${encodeURIComponent(content.originalName)}"`);
+    res.setHeader("Content-Type", content.mimeType || "application/octet-stream");
 
-    res.download(fullPath, attachment.originalName);
+    if (content.type === "file") {
+      return res.sendFile(content.filePath);
+    } else if (content.type === "buffer") {
+      return res.send(content.buffer);
+    }
   } catch (error) {
-    res.status(500).json({ error: "Error al descargar archivo" });
+    console.error("Error downloading attachment:", error);
+    res.status(404).json({ error: error.message || "Error al descargar archivo" });
+  }
+});
+
+// View inline / preview
+router.get("/:id/view", async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    const content = await storageService.getAttachmentContent(id);
+
+    if (content.type === "redirect") {
+      return res.redirect(content.url);
+    }
+
+    res.setHeader("Content-Type", content.mimeType || "application/octet-stream");
+
+    if (content.type === "file") {
+      return res.sendFile(content.filePath);
+    } else if (content.type === "buffer") {
+      return res.send(content.buffer);
+    }
+  } catch (error) {
+    res.status(404).json({ error: error.message || "Error al visualizar archivo" });
   }
 });
 
 // Delete attachment
-router.delete("/:id", async (req, res) => {
+router.delete("/:id", authOptional, async (req, res) => {
   try {
     const id = parseInt(req.params.id);
     const attachment = await prisma.attachment.findUnique({
@@ -94,11 +106,6 @@ router.delete("/:id", async (req, res) => {
 
     if (!attachment) {
       return res.status(404).json({ error: "Archivo no encontrado" });
-    }
-
-    const fullPath = path.join(uploadDir, attachment.fileName);
-    if (fs.existsSync(fullPath)) {
-      try { fs.unlinkSync(fullPath); } catch(e) {}
     }
 
     const projectId = attachment.task.projectId;
